@@ -10,7 +10,7 @@
     "id": "dashboard-resolver",
     "name": "Dashboard directory resolver",
     "category": "backend",
-    "status": "planned",
+    "status": "done",
     "files": ["src/lib/dashboard.ts"]
   },
   {
