@@ -73,7 +73,7 @@
     "id": "spa-routing",
     "name": "Hash-based router",
     "category": "frontend",
-    "status": "planned",
+    "status": "done",
     "files": ["dashboard/app.js"]
   },
   {
