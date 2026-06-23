@@ -24,7 +24,7 @@
     "id": "api-skill-detail",
     "name": "GET /api/skills/:name endpoint",
     "category": "api",
-    "status": "planned",
+    "status": "done",
     "description": "Single skill detail with parsed SKILL.md frontmatter and body"
   },
   {

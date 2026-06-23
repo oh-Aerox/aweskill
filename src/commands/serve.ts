@@ -4,9 +4,10 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import path from "node:path";
 
 import { getDashboardDir } from "../lib/dashboard.js";
+import { pathExists } from "../lib/fs.js";
 import { readSkillLock, type SkillLockEntry } from "../lib/lock.js";
-import { getSkillDescription } from "../lib/skill-doc.js";
-import { listSkills } from "../lib/skills.js";
+import { getSkillDescription, parseSkillDoc } from "../lib/skill-doc.js";
+import { getSkillPath, listSkills, skillExists } from "../lib/skills.js";
 import type { RuntimeContext } from "../types.js";
 
 export interface ServeOptions {
@@ -22,6 +23,14 @@ interface SkillApiResponse {
   name: string;
   description: string | null;
   hasSKILLMd: boolean;
+  lockEntry: SkillLockEntry | null;
+}
+
+interface SkillDetailApiResponse {
+  name: string;
+  frontmatter: Record<string, unknown>;
+  body: string;
+  description: string | null;
   lockEntry: SkillLockEntry | null;
 }
 
@@ -92,6 +101,41 @@ async function buildSkillsResponse(homeDir: string): Promise<SkillApiResponse[]>
   );
 }
 
+async function buildSkillDetailResponse(
+  homeDir: string,
+  skillName: string,
+): Promise<SkillDetailApiResponse | null> {
+  if (!(await skillExists(homeDir, skillName))) {
+    return null;
+  }
+
+  const skillPath = getSkillPath(homeDir, skillName);
+  const name = path.basename(skillPath);
+  const skillFile = path.join(skillPath, SKILL_MD_FILENAME);
+
+  let frontmatter: Record<string, unknown> = {};
+  let body = "";
+  let description: string | null = null;
+
+  if (await pathExists(skillFile)) {
+    const content = await readFile(skillFile, "utf8");
+    const parsed = parseSkillDoc(content);
+    frontmatter = parsed.frontmatter;
+    body = parsed.body;
+    description = getSkillDescription(content) ?? null;
+  }
+
+  const lock = await readSkillLock(homeDir);
+
+  return {
+    name,
+    frontmatter,
+    body,
+    description,
+    lockEntry: lock.skills[name] ?? null,
+  };
+}
+
 async function handleApiRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -113,6 +157,25 @@ async function handleApiRequest(
     }
 
     sendJson(res, 200, skills);
+    return true;
+  }
+
+  const skillDetailMatch = /^\/api\/skills\/([^/]+)$/.exec(urlPath);
+  if (skillDetailMatch) {
+    const skillName = decodeURIComponent(skillDetailMatch[1] ?? "");
+    const detail = await buildSkillDetailResponse(homeDir, skillName);
+    if (!detail) {
+      sendJson(res, 404, { error: "Skill not found" });
+      return true;
+    }
+
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, detail);
     return true;
   }
 
