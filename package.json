@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "resources",
+    "dashboard",
     "README.md",
     "README.zh-CN.md"
   ],

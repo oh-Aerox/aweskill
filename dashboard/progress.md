@@ -10,7 +10,7 @@
 | Frontend SPA | Done | All pages implemented |
 | CLI Integration | Done | `serve` registered in `src/cli/commands.ts` |
 | Testing | Done | `tests/serve.test.ts` |
-| Verification | Not started | Build, lint, manual E2E |
+| Verification | Done | Build, lint, test, npm pack dry-run |
 
 ## Completed Items
 
@@ -39,6 +39,7 @@
 - [x] Implement Agents page (`#/agents`) — table with install status, global skills dir, projected skill counts
 - [x] Implement Health page (`#/health`) — hygiene summary, agent issues, store findings, CLI suggestions
 - [x] Create `tests/serve.test.ts` — vitest coverage for serve command HTTP routing and API responses
+- [x] Edit `package.json` — add `"dashboard"` to `files` array for npm publish
 
 ## In Progress
 
@@ -50,5 +51,4 @@ _None_
 
 ## Next Actions (Priority Order)
 
-1. Edit `package.json` — add `"dashboard"` to `files`
-2. Run verification: build, lint, test, manual E2E
+_All dashboard features complete._

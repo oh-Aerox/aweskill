@@ -119,7 +119,7 @@
     "id": "pkg-config",
     "name": "Package.json files update",
     "category": "config",
-    "status": "planned",
+    "status": "done",
     "files": ["package.json"]
   }
 ]
