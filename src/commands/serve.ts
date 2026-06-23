@@ -71,6 +71,14 @@ interface HealthApiResponse {
   suggestions: string[];
 }
 
+interface StoreApiResponse {
+  rootDir: string;
+  skillsDir: string;
+  bundlesDir: string;
+  skillCount: number;
+  bundleCount: number;
+}
+
 const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
@@ -178,6 +186,19 @@ async function buildBundlesResponse(homeDir: string): Promise<BundleApiResponse[
       ),
     })),
   );
+}
+
+async function buildStoreResponse(homeDir: string): Promise<StoreApiResponse> {
+  const { rootDir, skillsDir, bundlesDir } = getAweskillPaths(homeDir);
+  const [skills, bundles] = await Promise.all([listSkills(homeDir), listBundles(homeDir)]);
+
+  return {
+    rootDir,
+    skillsDir,
+    bundlesDir,
+    skillCount: skills.length,
+    bundleCount: bundles.length,
+  };
 }
 
 // Mirrors doctor sync classification so the dashboard can surface the same repair hints.
@@ -339,6 +360,18 @@ async function handleApiRequest(
     }
 
     sendJson(res, 200, health);
+    return true;
+  }
+
+  if (urlPath === "/api/store") {
+    const store = await buildStoreResponse(homeDir);
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, store);
     return true;
   }
 

@@ -52,7 +52,7 @@
     "id": "api-store",
     "name": "GET /api/store endpoint",
     "category": "api",
-    "status": "planned",
+    "status": "done",
     "description": "Basic store metadata and paths"
   },
   {
