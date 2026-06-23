@@ -59,7 +59,7 @@
     "id": "spa-shell",
     "name": "SPA HTML shell",
     "category": "frontend",
-    "status": "planned",
+    "status": "done",
     "files": ["dashboard/index.html"]
   },
   {

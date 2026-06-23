@@ -7,7 +7,7 @@
 | Planning | Done | `dashboard/plan.md` finalized |
 | Project Structure | Done | `dashboard/` directory and harness files created |
 | Backend API | Done | All six API endpoints implemented |
-| Frontend SPA | Not started | `index.html`, `style.css`, `app.js` |
+| Frontend SPA | In progress | `index.html` done; `style.css`, `app.js` pending |
 | CLI Integration | Done | `serve` registered in `src/cli/commands.ts` |
 | Testing | Not started | `tests/serve.test.ts` |
 | Verification | Not started | Build, lint, manual E2E |
@@ -30,6 +30,7 @@
 - [x] Implement `GET /api/agents` — agent registry with installed status and projection counts
 - [x] Implement `GET /api/health` — store hygiene summary with agent issue counts and CLI suggestions
 - [x] Implement `GET /api/store` — store metadata with paths and skill/bundle counts
+- [x] Create `dashboard/index.html` — SPA shell with sidebar navigation and content area
 
 ## In Progress
 
@@ -41,9 +42,8 @@ _None_
 
 ## Next Actions (Priority Order)
 
-1. Create `dashboard/index.html` — SPA shell
-2. Create `dashboard/style.css` — minimal styles
-3. Create `dashboard/app.js` — routing + API consumption + rendering
-4. Edit `package.json` — add `"dashboard"` to `files`
-5. Create `tests/serve.test.ts` — vitest coverage
-6. Run verification: build, lint, test, manual E2E
+1. Create `dashboard/style.css` — minimal styles
+2. Create `dashboard/app.js` — routing + API consumption + rendering
+3. Edit `package.json` — add `"dashboard"` to `files`
+4. Create `tests/serve.test.ts` — vitest coverage
+5. Run verification: build, lint, test, manual E2E

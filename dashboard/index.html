@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>aweskill dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div class="app-header__brand">
+          <h1 class="app-title">aweskill dashboard</h1>
+        </div>
+        <div id="store-info" class="store-info" aria-live="polite">
+          <dl class="store-info__list">
+            <div class="store-info__item">
+              <dt>Store</dt>
+              <dd id="store-root">—</dd>
+            </div>
+            <div class="store-info__item">
+              <dt>Skills</dt>
+              <dd id="store-skill-count">—</dd>
+            </div>
+            <div class="store-info__item">
+              <dt>Bundles</dt>
+              <dd id="store-bundle-count">—</dd>
+            </div>
+          </dl>
+        </div>
+      </header>
+
+      <div class="app-body">
+        <nav class="sidebar" aria-label="Dashboard navigation">
+          <ul class="sidebar__list">
+            <li class="sidebar__item">
+              <a class="sidebar__link" href="#/skills">Skills</a>
+            </li>
+            <li class="sidebar__item">
+              <a class="sidebar__link" href="#/bundles">Bundles</a>
+            </li>
+            <li class="sidebar__item">
+              <a class="sidebar__link" href="#/agents">Agents</a>
+            </li>
+            <li class="sidebar__item">
+              <a class="sidebar__link" href="#/health">Health</a>
+            </li>
+          </ul>
+        </nav>
+
+        <main id="content" class="content" role="main" aria-live="polite"></main>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
