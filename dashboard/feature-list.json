@@ -112,7 +112,7 @@
     "id": "tests-serve",
     "name": "Serve command tests",
     "category": "test",
-    "status": "planned",
+    "status": "done",
     "files": ["tests/serve.test.ts"]
   },
   {
