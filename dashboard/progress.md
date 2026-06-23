@@ -6,7 +6,7 @@
 |-------|--------|-------|
 | Planning | Done | `dashboard/plan.md` finalized |
 | Project Structure | Done | `dashboard/` directory and harness files created |
-| Backend API | In progress | `serve` command skeleton done; API endpoints pending |
+| Backend API | In progress | `GET /api/skills` done; remaining endpoints pending |
 | Frontend SPA | Not started | `index.html`, `style.css`, `app.js` |
 | CLI Integration | Done | `serve` registered in `src/cli/commands.ts` |
 | Testing | Not started | `tests/serve.test.ts` |
@@ -24,6 +24,7 @@
 - [x] Create `src/lib/dashboard.ts` — dashboard directory resolver
 - [x] Create `src/commands/serve.ts` — HTTP server skeleton with static file serving
 - [x] Register `serve` command in `src/cli/commands.ts`
+- [x] Implement `GET /api/skills` — skill list with lock metadata and descriptions
 
 ## In Progress
 
@@ -35,7 +36,7 @@ _None_
 
 ## Next Actions (Priority Order)
 
-1. Implement API endpoints (`api-skills`, `api-bundles`, `api-agents`, `api-health`, `api-store`)
+1. Implement remaining API endpoints (`api-skill-detail`, `api-bundles`, `api-agents`, `api-health`, `api-store`)
 2. Create `dashboard/index.html` — SPA shell
 3. Create `dashboard/style.css` — minimal styles
 4. Create `dashboard/app.js` — routing + API consumption + rendering

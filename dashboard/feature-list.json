@@ -17,7 +17,7 @@
     "id": "api-skills",
     "name": "GET /api/skills endpoint",
     "category": "api",
-    "status": "planned",
+    "status": "done",
     "description": "List all skills with metadata, lock info, and descriptions"
   },
   {

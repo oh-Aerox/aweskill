@@ -1,9 +1,12 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import path from "node:path";
 
 import { getDashboardDir } from "../lib/dashboard.js";
+import { readSkillLock, type SkillLockEntry } from "../lib/lock.js";
+import { getSkillDescription } from "../lib/skill-doc.js";
+import { listSkills } from "../lib/skills.js";
 import type { RuntimeContext } from "../types.js";
 
 export interface ServeOptions {
@@ -13,6 +16,14 @@ export interface ServeOptions {
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 3000;
+const SKILL_MD_FILENAME = "SKILL.md";
+
+interface SkillApiResponse {
+  name: string;
+  description: string | null;
+  hasSKILLMd: boolean;
+  lockEntry: SkillLockEntry | null;
+}
 
 const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -52,6 +63,60 @@ function resolveWithinDashboard(dashboardDir: string, relativePath: string): str
     return null;
   }
   return resolved;
+}
+
+// Missing or unreadable SKILL.md should not fail the list endpoint.
+async function loadSkillDescription(skillPath: string, hasSKILLMd: boolean): Promise<string | null> {
+  if (!hasSKILLMd) {
+    return null;
+  }
+
+  try {
+    const content = await readFile(path.join(skillPath, SKILL_MD_FILENAME), "utf8");
+    return getSkillDescription(content) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function buildSkillsResponse(homeDir: string): Promise<SkillApiResponse[]> {
+  const [skills, lock] = await Promise.all([listSkills(homeDir), readSkillLock(homeDir)]);
+
+  return Promise.all(
+    skills.map(async (skill) => ({
+      name: skill.name,
+      description: await loadSkillDescription(skill.path, skill.hasSKILLMd),
+      hasSKILLMd: skill.hasSKILLMd,
+      lockEntry: lock.skills[skill.name] ?? null,
+    })),
+  );
+}
+
+async function handleApiRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  homeDir: string,
+  urlPath: string,
+): Promise<boolean> {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(405, { Allow: "GET, HEAD" });
+    res.end();
+    return true;
+  }
+
+  if (urlPath === "/api/skills") {
+    const skills = await buildSkillsResponse(homeDir);
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, skills);
+    return true;
+  }
+
+  return false;
 }
 
 async function serveStaticFile(
@@ -101,10 +166,20 @@ async function serveStaticFile(
   createReadStream(filePath).pipe(res);
 }
 
-async function handleRequest(req: IncomingMessage, res: ServerResponse, dashboardDir: string): Promise<void> {
+async function handleRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  dashboardDir: string,
+  homeDir: string,
+): Promise<void> {
   const urlPath = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`).pathname;
 
   if (isApiRoute(urlPath)) {
+    const handled = await handleApiRequest(req, res, homeDir, urlPath);
+    if (handled) {
+      return;
+    }
+
     sendJson(res, 501, { error: "Not implemented" });
     return;
   }
@@ -126,11 +201,8 @@ export async function runServe(
   const port = options.port ?? DEFAULT_PORT;
   const dashboardDir = await getDashboardDir();
 
-  // Upcoming API routes will read store data from context.homeDir.
-  void context.homeDir;
-
   const server = createServer((req, res) => {
-    handleRequest(req, res, dashboardDir).catch((error: unknown) => {
+    handleRequest(req, res, dashboardDir, context.homeDir).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : "Internal server error";
       sendJson(res, 500, { error: message });
     });
