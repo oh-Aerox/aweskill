@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import path from "node:path";
 
+import { listBundles } from "../lib/bundles.js";
 import { getDashboardDir } from "../lib/dashboard.js";
 import { pathExists } from "../lib/fs.js";
 import { readSkillLock, type SkillLockEntry } from "../lib/lock.js";
@@ -32,6 +33,16 @@ interface SkillDetailApiResponse {
   body: string;
   description: string | null;
   lockEntry: SkillLockEntry | null;
+}
+
+interface BundleSkillApiResponse {
+  name: string;
+  exists: boolean;
+}
+
+interface BundleApiResponse {
+  name: string;
+  skills: BundleSkillApiResponse[];
 }
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -101,6 +112,22 @@ async function buildSkillsResponse(homeDir: string): Promise<SkillApiResponse[]>
   );
 }
 
+async function buildBundlesResponse(homeDir: string): Promise<BundleApiResponse[]> {
+  const bundles = await listBundles(homeDir);
+
+  return Promise.all(
+    bundles.map(async (bundle) => ({
+      name: bundle.name,
+      skills: await Promise.all(
+        bundle.skills.map(async (skillName) => ({
+          name: skillName,
+          exists: await skillExists(homeDir, skillName),
+        })),
+      ),
+    })),
+  );
+}
+
 async function buildSkillDetailResponse(
   homeDir: string,
   skillName: string,
@@ -157,6 +184,18 @@ async function handleApiRequest(
     }
 
     sendJson(res, 200, skills);
+    return true;
+  }
+
+  if (urlPath === "/api/bundles") {
+    const bundles = await buildBundlesResponse(homeDir);
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, bundles);
     return true;
   }
 

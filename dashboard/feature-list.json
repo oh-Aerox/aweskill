@@ -31,7 +31,7 @@
     "id": "api-bundles",
     "name": "GET /api/bundles endpoint",
     "category": "api",
-    "status": "planned",
+    "status": "done",
     "description": "List all bundles with contained skills"
   },
   {

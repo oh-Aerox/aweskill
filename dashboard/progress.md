@@ -6,7 +6,7 @@
 |-------|--------|-------|
 | Planning | Done | `dashboard/plan.md` finalized |
 | Project Structure | Done | `dashboard/` directory and harness files created |
-| Backend API | In progress | `GET /api/skills` and `GET /api/skills/:name` done; remaining endpoints pending |
+| Backend API | In progress | `GET /api/skills`, `GET /api/skills/:name`, and `GET /api/bundles` done; remaining endpoints pending |
 | Frontend SPA | Not started | `index.html`, `style.css`, `app.js` |
 | CLI Integration | Done | `serve` registered in `src/cli/commands.ts` |
 | Testing | Not started | `tests/serve.test.ts` |
@@ -26,6 +26,7 @@
 - [x] Register `serve` command in `src/cli/commands.ts`
 - [x] Implement `GET /api/skills` — skill list with lock metadata and descriptions
 - [x] Implement `GET /api/skills/:name` — single skill detail with parsed SKILL.md and lock entry
+- [x] Implement `GET /api/bundles` — bundle list with skill existence indicators
 
 ## In Progress
 
