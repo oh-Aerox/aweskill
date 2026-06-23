@@ -96,8 +96,9 @@
     "id": "page-agents",
     "name": "Agents page",
     "category": "frontend",
-    "status": "planned",
-    "description": "Table of agents with installation and projection status"
+    "status": "done",
+    "description": "Table of agents with installation and projection status",
+    "files": ["dashboard/app.js"]
   },
   {
     "id": "page-health",

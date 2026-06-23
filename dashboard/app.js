@@ -58,6 +58,7 @@ function escapeHtml(text) {
 let skillsListRenderToken = 0;
 let skillDetailRenderToken = 0;
 let bundlesListRenderToken = 0;
+let agentsListRenderToken = 0;
 
 /**
  * Minimal page shell with a loading indicator.
@@ -475,8 +476,85 @@ async function renderBundlesPage() {
   }
 }
 
-function renderAgentsPage() {
-  renderPlaceholder("Agents", "Agents page");
+/** Badge class and label reflect whether the agent's global skills directory exists. */
+function renderAgentStatusBadge(installed) {
+  const badgeClass = installed ? "badge--success" : "badge--muted";
+  const badgeLabel = installed ? "Installed" : "Not installed";
+
+  return `<span class="badge ${badgeClass} badge--dot">${escapeHtml(badgeLabel)}</span>`;
+}
+
+function renderAgentGlobalSkillsDir(globalSkillsDir) {
+  if (!globalSkillsDir) {
+    return "—";
+  }
+
+  return `<span class="mono">${escapeHtml(globalSkillsDir)}</span>`;
+}
+
+function renderAgentRow(agent) {
+  return `
+    <tr>
+      <td>${escapeHtml(agent.displayName)}</td>
+      <td>${renderAgentStatusBadge(agent.installed)}</td>
+      <td>${renderAgentGlobalSkillsDir(agent.globalSkillsDir)}</td>
+      <td class="num">${escapeHtml(String(agent.projectedSkillCount ?? 0))}</td>
+    </tr>
+  `;
+}
+
+function renderAgentsTable(agents) {
+  return `
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Display name</th>
+            <th>Status</th>
+            <th>Global skills directory</th>
+            <th class="num">Projected skills</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${agents.map(renderAgentRow).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function renderAgentsPage() {
+  const token = ++agentsListRenderToken;
+  renderLoadingPage("Agents");
+
+  try {
+    const agents = await fetchJson("/agents");
+    if (token !== agentsListRenderToken) {
+      return;
+    }
+
+    const installedCount = agents.filter((agent) => agent.installed).length;
+    const countLabel = agents.length === 1 ? "1 agent" : `${agents.length} agents`;
+    const installedLabel =
+      installedCount === 1 ? "1 installed" : `${installedCount} installed`;
+
+    contentEl.innerHTML = `
+      <div class="page">
+        <header class="page__header">
+          <h2 class="page__title">Agents</h2>
+          <p class="page__subtitle">${escapeHtml(countLabel)} supported · ${escapeHtml(installedLabel)}</p>
+        </header>
+        ${renderAgentsTable(agents)}
+      </div>
+    `;
+  } catch (error) {
+    if (token !== agentsListRenderToken) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load agents";
+    renderErrorPage("Agents", message);
+  }
 }
 
 function renderHealthPage() {

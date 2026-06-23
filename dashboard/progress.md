@@ -7,7 +7,7 @@
 | Planning | Done | `dashboard/plan.md` finalized |
 | Project Structure | Done | `dashboard/` directory and harness files created |
 | Backend API | Done | All six API endpoints implemented |
-| Frontend SPA | In progress | Skills and bundles done; agents, health pending |
+| Frontend SPA | In progress | Skills, bundles, and agents done; health pending |
 | CLI Integration | Done | `serve` registered in `src/cli/commands.ts` |
 | Testing | Not started | `tests/serve.test.ts` |
 | Verification | Not started | Build, lint, manual E2E |
@@ -36,6 +36,7 @@
 - [x] Implement Skills list page (`#/skills`) — card grid, search filter, loading/error states
 - [x] Implement Skill detail page (`#/skills/:name`) — frontmatter, body preview, lock info, back link
 - [x] Implement Bundles page (`#/bundles`) — card grid, skill existence badges, loading/error states
+- [x] Implement Agents page (`#/agents`) — table with install status, global skills dir, projected skill counts
 
 ## In Progress
 
@@ -47,7 +48,7 @@ _None_
 
 ## Next Actions (Priority Order)
 
-1. Implement page UIs — agents, health (`page-agents`, `page-health`)
+1. Implement Health page UI (`page-health`)
 2. Edit `package.json` — add `"dashboard"` to `files`
 3. Create `tests/serve.test.ts` — vitest coverage
 4. Run verification: build, lint, test, manual E2E
