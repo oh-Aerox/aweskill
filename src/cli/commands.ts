@@ -25,6 +25,7 @@ import { runRestore } from "../commands/restore.js";
 import { runRmdup } from "../commands/rmdup.js";
 import { runScan } from "../commands/scan.js";
 import { runSelfUpdate } from "../commands/self-update.js";
+import { runServe } from "../commands/serve.js";
 import { runShow } from "../commands/show.js";
 import { runSync } from "../commands/sync.js";
 import { runUpdate } from "../commands/update.js";
@@ -147,6 +148,17 @@ export function createProgram(overrides: Partial<RuntimeContext> = {}) {
   addFindCommand(program, context, " aweskill find ");
   addUpdateCommand(program, context, " aweskill update ");
   addSelfUpdateCommand(program, context, " aweskill self-update ");
+
+  program
+    .command("serve")
+    .description("Start a local dashboard server")
+    .option("-p, --port <number>", "port to listen on", (v) => Number.parseInt(v, 10), 3000)
+    .option("--host <host>", "host to bind to", "127.0.0.1")
+    .action(async (options) => {
+      await runFramedCommand(" aweskill serve ", async () =>
+        runServe(context, { port: options.port, host: options.host }),
+      );
+    });
 
   const bundle = program.command("bundle").description("Manage skill bundles");
   bundle

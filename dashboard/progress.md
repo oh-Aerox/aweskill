@@ -6,9 +6,9 @@
 |-------|--------|-------|
 | Planning | Done | `dashboard/plan.md` finalized |
 | Project Structure | Done | `dashboard/` directory and harness files created |
-| Backend API | In progress | `src/lib/dashboard.ts` done; `src/commands/serve.ts` pending |
+| Backend API | In progress | `serve` command skeleton done; API endpoints pending |
 | Frontend SPA | Not started | `index.html`, `style.css`, `app.js` |
-| CLI Integration | Not started | Register `serve` in `src/cli/commands.ts` |
+| CLI Integration | Done | `serve` registered in `src/cli/commands.ts` |
 | Testing | Not started | `tests/serve.test.ts` |
 | Verification | Not started | Build, lint, manual E2E |
 
@@ -22,6 +22,8 @@
 - [x] Write `dashboard/progress.md` (this file)
 - [x] Write `dashboard/session-handoff.md` session continuity template
 - [x] Create `src/lib/dashboard.ts` — dashboard directory resolver
+- [x] Create `src/commands/serve.ts` — HTTP server skeleton with static file serving
+- [x] Register `serve` command in `src/cli/commands.ts`
 
 ## In Progress
 
@@ -33,11 +35,10 @@ _None_
 
 ## Next Actions (Priority Order)
 
-1. Create `src/commands/serve.ts` — HTTP server + API endpoints
-2. Edit `src/cli/commands.ts` — register `serve` command
-3. Create `dashboard/index.html` — SPA shell
-4. Create `dashboard/style.css` — minimal styles
-5. Create `dashboard/app.js` — routing + API consumption + rendering
-6. Edit `package.json` — add `"dashboard"` to `files`
-7. Create `tests/serve.test.ts` — vitest coverage
-8. Run verification: build, lint, test, manual E2E
+1. Implement API endpoints (`api-skills`, `api-bundles`, `api-agents`, `api-health`, `api-store`)
+2. Create `dashboard/index.html` — SPA shell
+3. Create `dashboard/style.css` — minimal styles
+4. Create `dashboard/app.js` — routing + API consumption + rendering
+5. Edit `package.json` — add `"dashboard"` to `files`
+6. Create `tests/serve.test.ts` — vitest coverage
+7. Run verification: build, lint, test, manual E2E

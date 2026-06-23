@@ -3,7 +3,7 @@
     "id": "serve-command",
     "name": "aweskill serve command",
     "category": "backend",
-    "status": "planned",
+    "status": "done",
     "files": ["src/commands/serve.ts", "src/cli/commands.ts"]
   },
   {
