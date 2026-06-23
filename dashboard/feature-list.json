@@ -88,8 +88,9 @@
     "id": "page-bundles",
     "name": "Bundles page",
     "category": "frontend",
-    "status": "planned",
-    "description": "Bundle cards with skill existence indicators"
+    "status": "done",
+    "description": "Bundle cards with skill existence indicators",
+    "files": ["dashboard/app.js"]
   },
   {
     "id": "page-agents",

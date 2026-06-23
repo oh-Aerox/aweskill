@@ -57,6 +57,7 @@ function escapeHtml(text) {
 /** Monotonic tokens so stale async renders are ignored after navigation. */
 let skillsListRenderToken = 0;
 let skillDetailRenderToken = 0;
+let bundlesListRenderToken = 0;
 
 /**
  * Minimal page shell with a loading indicator.
@@ -392,8 +393,86 @@ function renderPlaceholder(title, message) {
   `;
 }
 
-function renderBundlesPage() {
-  renderPlaceholder("Bundles", "Bundles page");
+/** Badge class and label reflect whether the skill directory exists in the store. */
+function renderBundleSkillItem(skill) {
+  const badgeClass = skill.exists ? "badge--success" : "badge--warning";
+  const badgeLabel = skill.exists ? "Installed" : "Missing";
+
+  return `
+    <li class="tag-list__item">
+      <span class="mono">${escapeHtml(skill.name)}</span>
+      <span class="badge ${badgeClass} badge--dot">${escapeHtml(badgeLabel)}</span>
+    </li>
+  `;
+}
+
+function renderBundleCard(bundle) {
+  const skillCount = bundle.skills.length;
+  const countLabel = skillCount === 1 ? "1 skill" : `${skillCount} skills`;
+  const skillsContent =
+    skillCount === 0
+      ? `<p class="text-muted">No skills in this bundle.</p>`
+      : `<ul class="tag-list">${bundle.skills.map(renderBundleSkillItem).join("")}</ul>`;
+
+  return `
+    <article class="card">
+      <header class="card__header">
+        <h3 class="card__title">${escapeHtml(bundle.name)}</h3>
+      </header>
+      <div class="card__body">${skillsContent}</div>
+      <footer class="card__meta">
+        <span class="card__meta-item">${escapeHtml(countLabel)}</span>
+      </footer>
+    </article>
+  `;
+}
+
+function renderBundlesGrid(bundles) {
+  return `<div class="card-grid">${bundles.map(renderBundleCard).join("")}</div>`;
+}
+
+async function renderBundlesPage() {
+  const token = ++bundlesListRenderToken;
+  renderLoadingPage("Bundles");
+
+  try {
+    const bundles = await fetchJson("/bundles");
+    if (token !== bundlesListRenderToken) {
+      return;
+    }
+
+    if (bundles.length === 0) {
+      contentEl.innerHTML = `
+        <div class="page">
+          <header class="page__header">
+            <h2 class="page__title">Bundles</h2>
+            <p class="page__subtitle">No bundles defined</p>
+          </header>
+          <p class="empty-state">Create bundles with <code class="mono">aweskill bundle create</code>.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const countLabel = bundles.length === 1 ? "1 bundle" : `${bundles.length} bundles`;
+
+    contentEl.innerHTML = `
+      <div class="page">
+        <header class="page__header">
+          <h2 class="page__title">Bundles</h2>
+          <p class="page__subtitle">${escapeHtml(countLabel)} in store</p>
+        </header>
+        ${renderBundlesGrid(bundles)}
+      </div>
+    `;
+  } catch (error) {
+    if (token !== bundlesListRenderToken) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load bundles";
+    renderErrorPage("Bundles", message);
+  }
 }
 
 function renderAgentsPage() {
