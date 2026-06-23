@@ -38,7 +38,7 @@
     "id": "api-agents",
     "name": "GET /api/agents endpoint",
     "category": "api",
-    "status": "planned",
+    "status": "done",
     "description": "Agent registry with installed status and projection counts"
   },
   {

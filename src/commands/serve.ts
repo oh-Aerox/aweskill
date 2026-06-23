@@ -3,11 +3,13 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import path from "node:path";
 
+import { listSupportedAgentsWithGlobalStatus } from "../lib/agents.js";
 import { listBundles } from "../lib/bundles.js";
 import { getDashboardDir } from "../lib/dashboard.js";
 import { pathExists } from "../lib/fs.js";
 import { readSkillLock, type SkillLockEntry } from "../lib/lock.js";
 import { getSkillDescription, parseSkillDoc } from "../lib/skill-doc.js";
+import { scanSkills } from "../lib/scanner.js";
 import { getSkillPath, listSkills, skillExists } from "../lib/skills.js";
 import type { RuntimeContext } from "../types.js";
 
@@ -43,6 +45,14 @@ interface BundleSkillApiResponse {
 interface BundleApiResponse {
   name: string;
   skills: BundleSkillApiResponse[];
+}
+
+interface AgentApiResponse {
+  id: string;
+  displayName: string;
+  installed: boolean;
+  globalSkillsDir?: string;
+  projectedSkillCount: number;
 }
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -110,6 +120,32 @@ async function buildSkillsResponse(homeDir: string): Promise<SkillApiResponse[]>
       lockEntry: lock.skills[skill.name] ?? null,
     })),
   );
+}
+
+// Scan only installed agents so we avoid walking every supported agent's skills directory.
+async function buildAgentsResponse(homeDir: string): Promise<AgentApiResponse[]> {
+  const agents = await listSupportedAgentsWithGlobalStatus(homeDir);
+  const installedAgents = agents.filter((agent) => agent.installed);
+
+  const projectedSkillCounts = new Map<string, number>();
+  await Promise.all(
+    installedAgents.map(async (agent) => {
+      const projectedSkills = await scanSkills({
+        homeDir,
+        scope: "global",
+        agents: [agent.id],
+      });
+      projectedSkillCounts.set(agent.id, projectedSkills.length);
+    }),
+  );
+
+  return agents.map((agent) => ({
+    id: agent.id,
+    displayName: agent.displayName,
+    installed: agent.installed,
+    ...(agent.skillsDir ? { globalSkillsDir: agent.skillsDir } : {}),
+    projectedSkillCount: agent.installed ? (projectedSkillCounts.get(agent.id) ?? 0) : 0,
+  }));
 }
 
 async function buildBundlesResponse(homeDir: string): Promise<BundleApiResponse[]> {
@@ -196,6 +232,18 @@ async function handleApiRequest(
     }
 
     sendJson(res, 200, bundles);
+    return true;
+  }
+
+  if (urlPath === "/api/agents") {
+    const agents = await buildAgentsResponse(homeDir);
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, agents);
     return true;
   }
 
