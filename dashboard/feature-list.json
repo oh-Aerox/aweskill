@@ -1,0 +1,121 @@
+[
+  {
+    "id": "serve-command",
+    "name": "aweskill serve command",
+    "category": "backend",
+    "status": "planned",
+    "files": ["src/commands/serve.ts", "src/cli/commands.ts"]
+  },
+  {
+    "id": "dashboard-resolver",
+    "name": "Dashboard directory resolver",
+    "category": "backend",
+    "status": "planned",
+    "files": ["src/lib/dashboard.ts"]
+  },
+  {
+    "id": "api-skills",
+    "name": "GET /api/skills endpoint",
+    "category": "api",
+    "status": "planned",
+    "description": "List all skills with metadata, lock info, and descriptions"
+  },
+  {
+    "id": "api-skill-detail",
+    "name": "GET /api/skills/:name endpoint",
+    "category": "api",
+    "status": "planned",
+    "description": "Single skill detail with parsed SKILL.md frontmatter and body"
+  },
+  {
+    "id": "api-bundles",
+    "name": "GET /api/bundles endpoint",
+    "category": "api",
+    "status": "planned",
+    "description": "List all bundles with contained skills"
+  },
+  {
+    "id": "api-agents",
+    "name": "GET /api/agents endpoint",
+    "category": "api",
+    "status": "planned",
+    "description": "Agent registry with installed status and projection counts"
+  },
+  {
+    "id": "api-health",
+    "name": "GET /api/health endpoint",
+    "category": "api",
+    "status": "planned",
+    "description": "Store hygiene summary: suspicious entries, broken links, duplicates"
+  },
+  {
+    "id": "api-store",
+    "name": "GET /api/store endpoint",
+    "category": "api",
+    "status": "planned",
+    "description": "Basic store metadata and paths"
+  },
+  {
+    "id": "spa-shell",
+    "name": "SPA HTML shell",
+    "category": "frontend",
+    "status": "planned",
+    "files": ["dashboard/index.html"]
+  },
+  {
+    "id": "spa-styles",
+    "name": "Dashboard styles",
+    "category": "frontend",
+    "status": "planned",
+    "files": ["dashboard/style.css"]
+  },
+  {
+    "id": "spa-routing",
+    "name": "Hash-based router",
+    "category": "frontend",
+    "status": "planned",
+    "files": ["dashboard/app.js"]
+  },
+  {
+    "id": "page-skills",
+    "name": "Skills list page",
+    "category": "frontend",
+    "status": "planned",
+    "description": "Cards with search, filter, and detail expansion"
+  },
+  {
+    "id": "page-bundles",
+    "name": "Bundles page",
+    "category": "frontend",
+    "status": "planned",
+    "description": "Bundle cards with skill existence indicators"
+  },
+  {
+    "id": "page-agents",
+    "name": "Agents page",
+    "category": "frontend",
+    "status": "planned",
+    "description": "Table of agents with installation and projection status"
+  },
+  {
+    "id": "page-health",
+    "name": "Health page",
+    "category": "frontend",
+    "status": "planned",
+    "description": "Hygiene summary with actionable suggestions"
+  },
+  {
+    "id": "tests-serve",
+    "name": "Serve command tests",
+    "category": "test",
+    "status": "planned",
+    "files": ["tests/serve.test.ts"]
+  },
+  {
+    "id": "pkg-config",
+    "name": "Package.json files update",
+    "category": "config",
+    "status": "planned",
+    "files": ["package.json"]
+  }
+]
