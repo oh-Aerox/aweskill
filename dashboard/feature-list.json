@@ -45,7 +45,7 @@
     "id": "api-health",
     "name": "GET /api/health endpoint",
     "category": "api",
-    "status": "planned",
+    "status": "done",
     "description": "Store hygiene summary: suspicious entries, broken links, duplicates"
   },
   {

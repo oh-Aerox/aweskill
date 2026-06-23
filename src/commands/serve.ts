@@ -3,15 +3,19 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import path from "node:path";
 
-import { listSupportedAgentsWithGlobalStatus } from "../lib/agents.js";
+import { listSupportedAgentsWithGlobalStatus, resolveAgentSkillsDir } from "../lib/agents.js";
 import { listBundles } from "../lib/bundles.js";
 import { getDashboardDir } from "../lib/dashboard.js";
 import { pathExists } from "../lib/fs.js";
+import { formatHygieneHint, scanStoreHygiene, type HygieneFinding } from "../lib/hygiene.js";
 import { readSkillLock, type SkillLockEntry } from "../lib/lock.js";
+import { getAweskillPaths } from "../lib/path.js";
 import { getSkillDescription, parseSkillDoc } from "../lib/skill-doc.js";
 import { scanSkills } from "../lib/scanner.js";
-import { getSkillPath, listSkills, skillExists } from "../lib/skills.js";
+import { getSkillPath, listSkillEntriesInDirectory, listSkills, skillExists } from "../lib/skills.js";
+import { listBrokenSymlinkNames, listManagedSkillNames } from "../lib/symlink.js";
 import type { RuntimeContext } from "../types.js";
+import { buildCentralCanonicalSkills, classifyCheckedSkill } from "./agent-inspection.js";
 
 export interface ServeOptions {
   port?: number;
@@ -53,6 +57,18 @@ interface AgentApiResponse {
   installed: boolean;
   globalSkillsDir?: string;
   projectedSkillCount: number;
+}
+
+interface HealthApiResponse {
+  totalSkills: number;
+  totalBundles: number;
+  storeFindings: HygieneFinding[];
+  agentIssues: {
+    brokenSymlinks: number;
+    duplicates: number;
+    suspicious: number;
+  };
+  suggestions: string[];
 }
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -164,6 +180,73 @@ async function buildBundlesResponse(homeDir: string): Promise<BundleApiResponse[
   );
 }
 
+// Mirrors doctor sync classification so the dashboard can surface the same repair hints.
+async function buildHealthResponse(homeDir: string): Promise<HealthApiResponse> {
+  const { rootDir, skillsDir, bundlesDir } = getAweskillPaths(homeDir);
+  const hygiene = await scanStoreHygiene({ rootDir, skillsDir, bundlesDir });
+  const canonicalSkillNames = buildCentralCanonicalSkills(await listSkills(homeDir));
+
+  const agents = await listSupportedAgentsWithGlobalStatus(homeDir);
+  const installedAgents = agents.filter((agent) => agent.installed);
+
+  let brokenSymlinks = 0;
+  let duplicates = 0;
+  let suspicious = 0;
+
+  for (const agent of installedAgents) {
+    const agentSkillsDir = resolveAgentSkillsDir(agent.id, "global", homeDir);
+    const managed = await listManagedSkillNames(agentSkillsDir, skillsDir);
+    const brokenNames = await listBrokenSymlinkNames(agentSkillsDir);
+    const skills = await listSkillEntriesInDirectory(agentSkillsDir);
+
+    brokenSymlinks += brokenNames.size;
+
+    for (const skill of skills) {
+      if (brokenNames.has(skill.name)) {
+        continue;
+      }
+
+      const checked = classifyCheckedSkill(skill, managed, canonicalSkillNames);
+      if (checked.category === "duplicate" || checked.category === "matched") {
+        duplicates += 1;
+      } else if (checked.category === "suspicious") {
+        suspicious += 1;
+      }
+    }
+
+    for (const [skillName] of managed) {
+      if (brokenNames.has(skillName)) {
+        continue;
+      }
+
+      const sourcePath = path.join(skillsDir, skillName);
+      if (!(await pathExists(sourcePath))) {
+        brokenSymlinks += 1;
+      }
+    }
+  }
+
+  const suggestions = [...formatHygieneHint(hygiene.findings)];
+  if (brokenSymlinks > 0 || duplicates > 0) {
+    suggestions.push(
+      "Run aweskill doctor sync --apply to repair broken projections and relink duplicate/matched entries.",
+    );
+  }
+  if (suspicious > 0) {
+    suggestions.push(
+      "Run aweskill doctor sync --apply --remove-suspicious to remove suspicious agent skill entries.",
+    );
+  }
+
+  return {
+    totalSkills: hygiene.validSkills.length,
+    totalBundles: hygiene.validBundles.length,
+    storeFindings: hygiene.findings,
+    agentIssues: { brokenSymlinks, duplicates, suspicious },
+    suggestions,
+  };
+}
+
 async function buildSkillDetailResponse(
   homeDir: string,
   skillName: string,
@@ -244,6 +327,18 @@ async function handleApiRequest(
     }
 
     sendJson(res, 200, agents);
+    return true;
+  }
+
+  if (urlPath === "/api/health") {
+    const health = await buildHealthResponse(homeDir);
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, health);
     return true;
   }
 
