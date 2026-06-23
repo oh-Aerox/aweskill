@@ -104,8 +104,9 @@
     "id": "page-health",
     "name": "Health page",
     "category": "frontend",
-    "status": "planned",
-    "description": "Hygiene summary with actionable suggestions"
+    "status": "done",
+    "description": "Hygiene summary with actionable suggestions",
+    "files": ["dashboard/app.js"]
   },
   {
     "id": "tests-serve",

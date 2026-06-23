@@ -59,6 +59,7 @@ let skillsListRenderToken = 0;
 let skillDetailRenderToken = 0;
 let bundlesListRenderToken = 0;
 let agentsListRenderToken = 0;
+let healthPageRenderToken = 0;
 
 /**
  * Minimal page shell with a loading indicator.
@@ -557,8 +558,207 @@ async function renderAgentsPage() {
   }
 }
 
-function renderHealthPage() {
-  renderPlaceholder("Health", "Health page");
+/** Human-readable labels for store hygiene finding kinds from the API. */
+const HYGIENE_FINDING_LABELS = {
+  "unexpected-skill-entry": "Unexpected skill entry",
+  "missing-skill-md": "Missing SKILL.md",
+  "unexpected-bundle-entry": "Unexpected bundle entry",
+  "invalid-bundle-yaml": "Invalid bundle YAML",
+};
+
+function formatHygieneFindingKind(kind) {
+  return HYGIENE_FINDING_LABELS[kind] ?? kind;
+}
+
+function healthStatTone(count, warnThreshold = 1) {
+  if (count === 0) {
+    return "ok";
+  }
+
+  return count >= warnThreshold ? "warn" : "ok";
+}
+
+function renderHealthStat(value, label, tone = "ok") {
+  const valueClass =
+    tone === "danger"
+      ? "health-stat__value--danger"
+      : tone === "warn"
+        ? "health-stat__value--warn"
+        : "health-stat__value--ok";
+
+  return `
+    <div class="health-stat">
+      <span class="health-stat__value ${valueClass}">${escapeHtml(String(value))}</span>
+      <span class="health-stat__label">${escapeHtml(label)}</span>
+    </div>
+  `;
+}
+
+function healthHasIssues(health) {
+  const { storeFindings, agentIssues } = health;
+  return (
+    storeFindings.length > 0 ||
+    agentIssues.brokenSymlinks > 0 ||
+    agentIssues.duplicates > 0 ||
+    agentIssues.suspicious > 0
+  );
+}
+
+/** Wrap aweskill CLI fragments in suggestions so commands stand out in the UI. */
+function formatSuggestionHtml(text) {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /(aweskill(?:\s+[\w-]+(?:\s+--[\w-]+)*)+)/g,
+    "<code>$1</code>",
+  );
+}
+
+function renderStoreFindingItem(finding) {
+  return `
+    <li class="health__list-item">
+      <span class="badge badge--warning badge--dot">${escapeHtml(formatHygieneFindingKind(finding.kind))}</span>
+      <span class="mono">${escapeHtml(finding.relativePath)}</span>
+    </li>
+  `;
+}
+
+function renderStoreFindingsSection(findings) {
+  if (findings.length === 0) {
+    return "";
+  }
+
+  const countLabel = findings.length === 1 ? "1 finding" : `${findings.length} findings`;
+
+  return `
+    <section class="health__section">
+      <h3 class="health__section-header">Store findings · ${escapeHtml(countLabel)}</h3>
+      <ul class="health__list">
+        ${findings.map(renderStoreFindingItem).join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function renderSuggestionsSection(suggestions) {
+  if (suggestions.length === 0) {
+    return "";
+  }
+
+  return `
+    <section class="health__section">
+      <h3 class="health__section-header">Suggested actions</h3>
+      <ul class="health__list">
+        ${suggestions
+          .map(
+            (suggestion) => `
+          <li class="health__list-item health-warning">
+            <span>${formatSuggestionHtml(suggestion)}</span>
+          </li>
+        `,
+          )
+          .join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function renderAllClearBanner() {
+  return `
+    <div class="health__summary" role="status" aria-label="All clear">
+      <div class="health-stat">
+        <span class="health-stat__value health-stat__value--ok">✓</span>
+        <span class="health-stat__label">All clear</span>
+      </div>
+    </div>
+    <p class="text-muted">No store hygiene issues or agent projection problems detected.</p>
+  `;
+}
+
+function renderHealthContent(health) {
+  const storeFindingsCount = health.storeFindings.length;
+  const { brokenSymlinks, duplicates, suspicious } = health.agentIssues;
+  const hasIssues = healthHasIssues(health);
+
+  const summaryHtml = `
+    <div class="health__summary">
+      ${renderHealthStat(health.totalSkills, "Total skills", "ok")}
+      ${renderHealthStat(health.totalBundles, "Total bundles", "ok")}
+      ${renderHealthStat(
+        storeFindingsCount,
+        "Store findings",
+        healthStatTone(storeFindingsCount),
+      )}
+    </div>
+  `;
+
+  const agentIssuesHtml = `
+    <section class="health__section">
+      <h3 class="health__section-header">Agent projection issues</h3>
+      <div class="health__summary">
+        ${renderHealthStat(
+          brokenSymlinks,
+          "Broken symlinks",
+          brokenSymlinks > 0 ? "danger" : "ok",
+        )}
+        ${renderHealthStat(duplicates, "Duplicates", healthStatTone(duplicates, 1))}
+        ${renderHealthStat(suspicious, "Suspicious", healthStatTone(suspicious, 1))}
+      </div>
+    </section>
+  `;
+
+  const statusBanner = hasIssues
+    ? `
+      <div class="alert ${brokenSymlinks > 0 ? "alert--danger" : "alert--warning"}" role="alert">
+        <div>
+          <p class="alert__title">Issues detected</p>
+          <p class="alert__body">Review store findings and agent projection counts below. Follow the suggested CLI commands to repair.</p>
+        </div>
+      </div>
+    `
+    : renderAllClearBanner();
+
+  return `
+    <div class="health">
+      ${statusBanner}
+      ${summaryHtml}
+      ${agentIssuesHtml}
+      ${renderStoreFindingsSection(health.storeFindings)}
+      ${renderSuggestionsSection(health.suggestions)}
+    </div>
+  `;
+}
+
+async function renderHealthPage() {
+  const token = ++healthPageRenderToken;
+  renderLoadingPage("Health", "Checking store hygiene…");
+
+  try {
+    const health = await fetchJson("/health");
+    if (token !== healthPageRenderToken) {
+      return;
+    }
+
+    const subtitle = healthHasIssues(health)
+      ? "Issues need attention"
+      : "Store and agent projections look healthy";
+
+    contentEl.innerHTML = `
+      <div class="page">
+        <header class="page__header">
+          <h2 class="page__title">Health</h2>
+          <p class="page__subtitle">${escapeHtml(subtitle)}</p>
+        </header>
+        ${renderHealthContent(health)}
+      </div>
+    `;
+  } catch (error) {
+    if (token !== healthPageRenderToken) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load health data";
+    renderErrorPage("Health", message);
+  }
 }
 
 /**
