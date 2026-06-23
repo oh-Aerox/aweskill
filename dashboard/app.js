@@ -1,6 +1,5 @@
 /**
- * aweskill dashboard — hash router, API utilities, and page placeholders.
- * Full page UI is implemented in separate page-* tasks.
+ * aweskill dashboard — hash router, API utilities, and page renderers.
  */
 
 const API_BASE = "/api";
@@ -55,10 +54,14 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+/** Monotonic tokens so stale async renders are ignored after navigation. */
+let skillsListRenderToken = 0;
+let skillDetailRenderToken = 0;
+
 /**
- * Minimal page shell shared by placeholder renderers until page-* tasks land.
+ * Minimal page shell with a loading indicator.
  */
-function renderPlaceholder(title, message) {
+function renderLoadingPage(title, message = "Loading…") {
   contentEl.innerHTML = `
     <div class="page">
       <header class="page__header">
@@ -69,12 +72,324 @@ function renderPlaceholder(title, message) {
   `;
 }
 
-function renderSkillsPage() {
-  renderPlaceholder("Skills", "Skills page");
+/**
+ * Minimal page shell with an error banner.
+ */
+function renderErrorPage(title, message) {
+  contentEl.innerHTML = `
+    <div class="page">
+      <header class="page__header">
+        <h2 class="page__title">${escapeHtml(title)}</h2>
+      </header>
+      <div class="error-state" role="alert">${escapeHtml(message)}</div>
+    </div>
+  `;
 }
 
-function renderSkillDetailPage(name) {
-  renderPlaceholder(`Skill: ${name}`, "Loading...");
+function formatDate(isoString) {
+  if (!isoString) {
+    return "—";
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return isoString;
+  }
+
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatSkillSource(lockEntry) {
+  if (!lockEntry) {
+    return "—";
+  }
+
+  return lockEntry.source || lockEntry.sourceUrl || "—";
+}
+
+function skillMatchesQuery(skill, query) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = `${skill.name} ${skill.description ?? ""}`.toLowerCase();
+  return haystack.includes(query);
+}
+
+function renderSkillCard(skill) {
+  const description = skill.description || "No description";
+  const source = formatSkillSource(skill.lockEntry);
+  const installedAt = skill.lockEntry?.installedAt
+    ? formatDate(skill.lockEntry.installedAt)
+    : "—";
+
+  return `
+    <article class="card card--clickable" data-skill-name="${escapeHtml(skill.name)}" tabindex="0" role="link" aria-label="View ${escapeHtml(skill.name)}">
+      <header class="card__header">
+        <h3 class="card__title">${escapeHtml(skill.name)}</h3>
+      </header>
+      <div class="card__body">${escapeHtml(description)}</div>
+      <footer class="card__meta">
+        <span class="card__meta-item">Source: <span class="mono">${escapeHtml(source)}</span></span>
+        <span class="card__meta-item">Installed: ${escapeHtml(installedAt)}</span>
+      </footer>
+    </article>
+  `;
+}
+
+function renderSkillsGrid(skills) {
+  if (skills.length === 0) {
+    return `<p class="empty-state">No skills match your search.</p>`;
+  }
+
+  return `<div class="card-grid">${skills.map(renderSkillCard).join("")}</div>`;
+}
+
+function bindSkillsListInteractions() {
+  contentEl.querySelectorAll(".card--clickable[data-skill-name]").forEach((card) => {
+    const navigate = () => {
+      const name = card.getAttribute("data-skill-name");
+      if (name) {
+        window.location.hash = `#/skills/${encodeURIComponent(name)}`;
+      }
+    };
+
+    card.addEventListener("click", navigate);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        navigate();
+      }
+    });
+  });
+}
+
+function renderSkillsListContent(skills, query = "") {
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = skills.filter((skill) => skillMatchesQuery(skill, normalizedQuery));
+  const gridEl = contentEl.querySelector("#skills-grid");
+
+  if (gridEl) {
+    gridEl.innerHTML = renderSkillsGrid(filtered);
+    bindSkillsListInteractions();
+  }
+}
+
+function renderSkillsListShell(skills) {
+  const countLabel = skills.length === 1 ? "1 skill" : `${skills.length} skills`;
+
+  contentEl.innerHTML = `
+    <div class="page">
+      <header class="page__header">
+        <h2 class="page__title">Skills</h2>
+        <p class="page__subtitle">${escapeHtml(countLabel)} in store</p>
+      </header>
+      <div class="page__toolbar">
+        <div class="search">
+          <input
+            type="search"
+            class="search__input"
+            id="skills-search"
+            placeholder="Filter by name or description…"
+            aria-label="Filter skills by name or description"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+      <div id="skills-grid">${renderSkillsGrid(skills)}</div>
+    </div>
+  `;
+
+  const searchInput = contentEl.querySelector("#skills-search");
+  searchInput?.addEventListener("input", (event) => {
+    renderSkillsListContent(skills, event.target.value);
+  });
+
+  bindSkillsListInteractions();
+}
+
+async function renderSkillsPage() {
+  const token = ++skillsListRenderToken;
+  renderLoadingPage("Skills");
+
+  try {
+    const skills = await fetchJson("/skills");
+    if (token !== skillsListRenderToken) {
+      return;
+    }
+
+    if (skills.length === 0) {
+      contentEl.innerHTML = `
+        <div class="page">
+          <header class="page__header">
+            <h2 class="page__title">Skills</h2>
+            <p class="page__subtitle">No skills installed</p>
+          </header>
+          <p class="empty-state">Your skill store is empty. Install skills with <code class="mono">aweskill install</code>.</p>
+        </div>
+      `;
+      return;
+    }
+
+    renderSkillsListShell(skills);
+  } catch (error) {
+    if (token !== skillsListRenderToken) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load skills";
+    renderErrorPage("Skills", message);
+  }
+}
+
+function renderKeyValueList(entries) {
+  if (entries.length === 0) {
+    return `<p class="text-muted">None</p>`;
+  }
+
+  return `
+    <dl class="kv-list">
+      ${entries
+        .map(
+          ([key, value]) => `
+        <div>
+          <dt>${escapeHtml(key)}</dt>
+          <dd>${escapeHtml(value)}</dd>
+        </div>
+      `,
+        )
+        .join("")}
+    </dl>
+  `;
+}
+
+function formatLockValue(key, value) {
+  if (value == null || value === "") {
+    return "—";
+  }
+
+  if (key === "installedAt" || key === "updatedAt") {
+    return formatDate(String(value));
+  }
+
+  return String(value);
+}
+
+function renderLockSection(lockEntry) {
+  if (!lockEntry) {
+    return `
+      <section class="detail__section">
+        <h3 class="detail__section-title">Lock file</h3>
+        <div class="detail__section-body">
+          <p class="text-muted">No lock entry for this skill.</p>
+        </div>
+      </section>
+    `;
+  }
+
+  const entries = Object.entries(lockEntry).map(([key, value]) => [
+    key,
+    formatLockValue(key, value),
+  ]);
+
+  return `
+    <section class="detail__section">
+      <h3 class="detail__section-title">Lock file</h3>
+      <div class="detail__section-body">
+        ${renderKeyValueList(entries)}
+      </div>
+    </section>
+  `;
+}
+
+function renderFrontmatterSection(frontmatter) {
+  const entries = Object.entries(frontmatter ?? {}).map(([key, value]) => [
+    key,
+    typeof value === "object" && value !== null ? JSON.stringify(value) : String(value),
+  ]);
+
+  return `
+    <section class="detail__section">
+      <h3 class="detail__section-title">Frontmatter</h3>
+      <div class="detail__section-body">
+        ${renderKeyValueList(entries)}
+      </div>
+    </section>
+  `;
+}
+
+function renderBodyPreview(body) {
+  const preview = body?.trim() ? body : "No body content.";
+
+  return `
+    <section class="detail__section">
+      <h3 class="detail__section-title">Body preview</h3>
+      <div class="detail__section-body">
+        <pre class="code-block">${escapeHtml(preview)}</pre>
+      </div>
+    </section>
+  `;
+}
+
+async function renderSkillDetailPage(name) {
+  const token = ++skillDetailRenderToken;
+  renderLoadingPage(name, "Loading skill…");
+
+  try {
+    const skill = await fetchJson(`/skills/${encodeURIComponent(name)}`);
+    if (token !== skillDetailRenderToken) {
+      return;
+    }
+
+    const descriptionBlock = skill.description
+      ? `<p class="page__subtitle">${escapeHtml(skill.description)}</p>`
+      : "";
+
+    contentEl.innerHTML = `
+      <div class="page">
+        <header class="page__header">
+          <p class="text-muted"><a href="#/skills">← Back to Skills</a></p>
+          <h2 class="page__title">${escapeHtml(skill.name)}</h2>
+          ${descriptionBlock}
+        </header>
+        <div class="detail">
+          ${renderFrontmatterSection(skill.frontmatter)}
+          ${renderBodyPreview(skill.body)}
+          ${renderLockSection(skill.lockEntry)}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    if (token !== skillDetailRenderToken) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load skill";
+    contentEl.innerHTML = `
+      <div class="page">
+        <header class="page__header">
+          <p class="text-muted"><a href="#/skills">← Back to Skills</a></p>
+          <h2 class="page__title">${escapeHtml(name)}</h2>
+        </header>
+        <div class="error-state" role="alert">${escapeHtml(message)}</div>
+      </div>
+    `;
+  }
+}
+
+function renderPlaceholder(title, message) {
+  contentEl.innerHTML = `
+    <div class="page">
+      <header class="page__header">
+        <h2 class="page__title">${escapeHtml(title)}</h2>
+      </header>
+      <p class="loading">${escapeHtml(message)}</p>
+    </div>
+  `;
 }
 
 function renderBundlesPage() {

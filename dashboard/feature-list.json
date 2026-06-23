@@ -80,8 +80,9 @@
     "id": "page-skills",
     "name": "Skills list page",
     "category": "frontend",
-    "status": "planned",
-    "description": "Cards with search, filter, and detail expansion"
+    "status": "done",
+    "description": "Cards with search, filter, and detail view",
+    "files": ["dashboard/app.js"]
   },
   {
     "id": "page-bundles",
