@@ -115,6 +115,64 @@ If the user is speaking Chinese, use this version instead:
 > - “帮我找一个好用的 Python 数据分析 skill，并安装到 aweskill。”
 > - “我能用 aweskill 做什么？”
 
+## Optional: Web Dashboard
+
+After bootstrap, the user can browse the aweskill store in a local read-only web UI.
+
+### When to mention it
+
+- The user asks to inspect skills, bundles, agent projections, or store health visually
+- The user wants a quick overview before running `doctor sync` or `doctor clean`
+- The user is working from a git checkout and wants to verify local dashboard changes
+
+### Start the dashboard
+
+If `aweskill serve` is available (npm release or local build):
+
+```bash
+aweskill store init
+aweskill serve
+# default: http://127.0.0.1:3000
+aweskill serve --port 3456 --host 127.0.0.1
+```
+
+If `aweskill serve` is **not** in `aweskill -h`, the installed npm package is too old or the user is on unreleased source. From a git checkout:
+
+```bash
+npm run build
+npm link
+aweskill serve
+
+# or without linking
+npm run dev -- serve --port 3456
+```
+
+### What the dashboard shows (read-only)
+
+| Route | Purpose |
+| --- | --- |
+| `#/skills` | Searchable skill cards with description, source, install date |
+| `#/skills/:name` | Parsed `SKILL.md` frontmatter, body preview, lock entry |
+| `#/bundles` | Bundles and whether each skill exists in the store |
+| `#/agents` | Agent install status, global skills dir, projection counts |
+| `#/health` | Store hygiene, broken symlinks, duplicates; suggests `doctor sync` / `doctor clean` |
+| `#/readme` | Project README (English / 简体中文) |
+
+### Agent behavior
+
+- The dashboard is **read-only**. Do not tell the user they can install, delete, or sync from the UI.
+- For repairs, still use CLI commands such as `aweskill doctor sync --apply` or `aweskill doctor clean --apply`.
+- If `serve` fails with `Dashboard directory not found`, tell the user to rebuild and relink: `npm run build && npm link`.
+- Module docs: [dashboard/README.md](dashboard/README.md).
+
+Tell the user (English):
+
+> You can open the aweskill dashboard at http://127.0.0.1:3000 after running `aweskill serve`. It is read-only — use CLI commands for install, sync, and repair.
+
+Tell the user (Chinese):
+
+> 运行 `aweskill serve` 后可在 http://127.0.0.1:3000 打开 aweskill Dashboard。它是只读的，安装、同步和修复仍需使用 CLI 命令。
+
 ## Safety Rules
 
 - If you cannot determine the agent id, ask the user before proceeding.

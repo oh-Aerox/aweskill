@@ -144,6 +144,7 @@ npm install -g ./aweskill-<version>.tgz
 - **托管启用/停用模型**：通过按需投影实现插拔，而不是手动把目录复制到每个工具里
 - **提供可被 agent 调用的管理与修复 skills**：让 AI agent 能根据自然语言请求运行 `aweskill` 和 `aweskill-doctor` 工作流
 - **本地维护与恢复能力**：备份、恢复、查重、清理、同步修复都在同一个本地 CLI 流程里完成
+- **本地 Web Dashboard**：通过 `aweskill serve` 在浏览器中浏览 skills、bundles、agent 投影状态和仓库健康状况
 
 <details>
 <summary>更多 FAQ</summary>
@@ -314,6 +315,9 @@ aweskill agent add bundle frontend --global --agent claude-code
 
 # 查看当前投影状态
 aweskill agent list
+
+# 启动本地只读 Web Dashboard（默认 http://127.0.0.1:3000）
+aweskill serve
 ```
 
 ## Windows
@@ -494,9 +498,66 @@ aweskill doctor sync --global --agent codex --apply --remove-suspicious
 
 详细说明与修复前后示例见 [docs/fix-skills-categories.md](docs/fix-skills-categories.md)。
 
+## Web Dashboard
+
+`aweskill serve` 会启动一个本地只读 Web Dashboard（默认 `http://127.0.0.1:3000`），用于浏览中央仓库、bundle 成员、agent 投影状态和卫生问题，无需串联多条 inspect 命令。
+
+```bash
+aweskill store init
+aweskill serve
+aweskill serve --port 3456 --host 127.0.0.1
+```
+
+从 git 仓库运行时，需先 build 并 link，确保全局 `aweskill` 包含 `serve` 命令且附带 `dashboard/` 静态资源：
+
+```bash
+npm run build
+npm link          # 或：npm install -g .
+aweskill serve
+
+# 或不 link，直接从源码运行
+npm run dev -- serve --port 3456
+```
+
+### 页面
+
+| 路由 | 内容 |
+| --- | --- |
+| `#/skills` | 中央仓库 skill 列表：描述、来源、安装时间；支持搜索 |
+| `#/skills/:name` | 单个 skill：解析后的 `SKILL.md` frontmatter、正文预览、lock 记录 |
+| `#/bundles` | Bundle 列表及其中每个 skill 是否已安装 |
+| `#/agents` | 支持的 agent、安装状态、全局 skills 目录、投影数量 |
+| `#/health` | 仓库卫生检查结果、断链、重复项、可疑条目；提示 `doctor sync` / `doctor clean` |
+| `#/readme` | 项目 README，支持 English / 简体中文切换 |
+
+### 实现逻辑
+
+- **只读 UI** — 安装、删除、同步等写操作仍在 CLI 中完成（如 `doctor sync --apply`、`store install`）。
+- **零前端构建** — `dashboard/` 下为纯 HTML/CSS/JS；hash 路由，服务端对未知路径回退到 `index.html`。
+- **内置 HTTP 服务** — 仅使用 Node.js `http` 模块，无新增生产依赖。
+- **复用 CLI 逻辑** — API 层调用 `listSkills`、`listBundles`、`scanStoreHygiene`、`classifyCheckedSkill` 等现有函数，不重复实现文件系统规则。
+
+### HTTP API
+
+只读 JSON 端点，前缀 `/api`：
+
+| 端点 | 数据 |
+| --- | --- |
+| `GET /api/store` | 仓库根路径、skill/bundle 数量 |
+| `GET /api/skills` | skill 列表（含描述与 lock 元数据） |
+| `GET /api/skills/:name` | 单个 skill 详情（解析 `SKILL.md`） |
+| `GET /api/bundles` | Bundle 列表及 skill 存在性标记 |
+| `GET /api/agents` | Agent 注册表与投影数量 |
+| `GET /api/health` | 卫生摘要与修复建议 |
+| `GET /api/readme?variant=en\|zh-CN` | 应用内 Readme 页面的 README 内容 |
+
+运行时结构：`src/commands/serve.ts` 提供 API 与静态资源；`src/lib/dashboard.ts` 在源码（`src/lib`）与打包（`dist/index.js`）两种布局下解析 `dashboard/` 目录。
+
+更多细节见 [dashboard/README.md](dashboard/README.md)、[dashboard/plan.md](dashboard/plan.md)。
+
 ## 命令面
 
-核心命令：`store init`、`store where`、`store scan`、`bundle create`、`agent add`、`doctor clean`
+核心命令：`store init`、`store where`、`store scan`、`bundle create`、`agent add`、`doctor clean`、`serve`
 
 高频搜索和 tracked-source 流程也提供顶层命令：`aweskill find`、`aweskill install`、`aweskill update`。
 
@@ -506,6 +567,7 @@ aweskill doctor sync --global --agent codex --apply --remove-suspicious
 | 命令 | 说明 |
 | --- | --- |
 | `aweskill self-update [--dev] [--check]` | 更新 aweskill CLI 本身；默认从 npm 更新，`--dev` 从 GitHub dev 分支构建，`--check` 仅显示版本不更新 |
+| `aweskill serve [-p\|--port <number>] [--host <host>]` | 启动本地只读 Web Dashboard；默认 `127.0.0.1:3000` |
 | `aweskill store init [--scan] [--verbose]` | 初始化 `~/.aweskill` 布局 |
 | `aweskill store where [--verbose]` | 显示 `~/.aweskill` 位置，并汇总核心 store 目录 |
 | `aweskill store backup [archive] [--skills-only]` | 归档中央仓库；默认同时包含 skills 和 bundles |
@@ -680,7 +742,7 @@ skill 目录结构与设计原则见 [docs/DESIGN.md](docs/DESIGN.md)。
 
 ## 开发
 
-环境搭建、测试、代码风格请参考 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)。设计原则和命令语义请参考 [docs/DESIGN.md](docs/DESIGN.md)。
+环境搭建、测试、代码风格请参考 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)。设计原则和命令语义请参考 [docs/DESIGN.md](docs/DESIGN.md)。Dashboard 模块文档见 [dashboard/README.md](dashboard/README.md)。
 
 ## 许可证
 

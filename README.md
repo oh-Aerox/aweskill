@@ -155,6 +155,7 @@ npm install -g ./aweskill-<version>.tgz
 - **Managed enable/disable model** with plug-and-play projection instead of manually copying folders into each tool
 - **Agent-callable management and repair skills** so AI agents can run both `aweskill` and `aweskill-doctor` workflows from natural-language requests
 - **Backup, restore, deduplication, cleanup, sync repair, and recovery** in one local CLI workflow
+- **Local web dashboard** via `aweskill serve` for browsing skills, bundles, agent projections, and store health in the browser
 
 <details>
 <summary>More FAQ</summary>
@@ -325,6 +326,9 @@ aweskill agent add bundle frontend --global --agent claude-code
 
 # Inspect current projected skills
 aweskill agent list
+
+# Start the local read-only web dashboard (default http://127.0.0.1:3000)
+aweskill serve
 ```
 
 ## Windows
@@ -505,9 +509,66 @@ All `doctor` commands default to dry-run. Add `--apply` to make real changes.
 
 See [docs/fix-skills-categories.md](docs/fix-skills-categories.md) for full details and before/after examples.
 
+## Web Dashboard
+
+`aweskill serve` starts a local read-only web dashboard (default `http://127.0.0.1:3000`). Use it to browse the central store, bundle membership, agent projection state, and hygiene issues without chaining multiple inspect commands.
+
+```bash
+aweskill store init
+aweskill serve
+aweskill serve --port 3456 --host 127.0.0.1
+```
+
+When running from a git checkout, build and link first so the global `aweskill` binary includes `serve` and ships the `dashboard/` assets:
+
+```bash
+npm run build
+npm link          # or: npm install -g .
+aweskill serve
+
+# or run directly from source without linking
+npm run dev -- serve --port 3456
+```
+
+### Pages
+
+| Route | What it shows |
+| --- | --- |
+| `#/skills` | Central-store skills with description, source, install date; searchable |
+| `#/skills/:name` | Parsed `SKILL.md` frontmatter, body preview, lock entry |
+| `#/bundles` | Bundles and whether each listed skill exists in the store |
+| `#/agents` | Supported agents, install status, global skills directory, projection counts |
+| `#/health` | Store hygiene findings, broken symlinks, duplicates, suspicious entries; suggests `doctor sync` / `doctor clean` |
+| `#/readme` | Project README with English / 简体中文 toggle |
+
+### How it works
+
+- **Read-only UI** — install, delete, sync, and other mutations stay in the CLI (`doctor sync --apply`, `store install`, and so on).
+- **Zero frontend build** — plain HTML/CSS/JS under `dashboard/`; hash routing so the server can fall back to `index.html`.
+- **Built-in HTTP server** — Node.js `http` module only; no new production dependencies.
+- **Same lib logic as the CLI** — APIs reuse `listSkills`, `listBundles`, `scanStoreHygiene`, `classifyCheckedSkill`, and related helpers instead of duplicating filesystem rules.
+
+### HTTP API
+
+Read-only JSON endpoints under `/api`:
+
+| Endpoint | Data |
+| --- | --- |
+| `GET /api/store` | Store root path, skill/bundle counts |
+| `GET /api/skills` | Skill list with descriptions and lock metadata |
+| `GET /api/skills/:name` | Single skill detail from parsed `SKILL.md` |
+| `GET /api/bundles` | Bundles with per-skill existence flags |
+| `GET /api/agents` | Agent registry with projection counts |
+| `GET /api/health` | Hygiene summary and repair suggestions |
+| `GET /api/readme?variant=en\|zh-CN` | README content for the in-app Readme page |
+
+Runtime layout: `src/commands/serve.ts` serves APIs and static assets; `src/lib/dashboard.ts` resolves the `dashboard/` directory from both source (`src/lib`) and bundled (`dist/index.js`) layouts.
+
+More detail: [dashboard/README.md](dashboard/README.md), [dashboard/plan.md](dashboard/plan.md).
+
 ## Command Surface
 
-Core commands: `store init`, `store where`, `store scan`, `bundle create`, `agent add`, `doctor clean`
+Core commands: `store init`, `store where`, `store scan`, `bundle create`, `agent add`, `doctor clean`, `serve`
 
 Top-level convenience commands are available for high-frequency search and tracked-source flows: `aweskill find`, `aweskill install`, and `aweskill update`.
 
@@ -517,6 +578,7 @@ Top-level convenience commands are available for high-frequency search and track
 | Command | Description |
 | --- | --- |
 | `aweskill self-update [--dev] [--check]` | Update the aweskill CLI itself; default updates from npm, `--dev` builds from GitHub dev branch, `--check` shows versions without updating |
+| `aweskill serve [-p\|--port <number>] [--host <host>]` | Start the local read-only web dashboard; default `127.0.0.1:3000` |
 | `aweskill store init [--scan] [--verbose]` | Create the `~/.aweskill` layout |
 | `aweskill store where [--verbose]` | Show the `~/.aweskill` location and summarize core store directories |
 | `aweskill store backup [archive] [--skills-only]` | Archive the central store; by default includes both skills and bundles |
@@ -691,7 +753,7 @@ Works with 47 agents including:
 
 ## Development
 
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup, testing, and code style. See [docs/DESIGN.md](docs/DESIGN.md) for design principles and command semantics.
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup, testing, and code style. See [docs/DESIGN.md](docs/DESIGN.md) for design principles and command semantics. Dashboard module docs live in [dashboard/README.md](dashboard/README.md).
 
 ## License
 
