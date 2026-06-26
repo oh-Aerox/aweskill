@@ -7,11 +7,19 @@ import { listSupportedAgentsWithGlobalStatus, resolveAgentSkillsDir } from "../l
 import { listBundles } from "../lib/bundles.js";
 import { getDashboardDir } from "../lib/dashboard.js";
 import { pathExists } from "../lib/fs.js";
-import { formatHygieneHint, scanStoreHygiene, type HygieneFinding } from "../lib/hygiene.js";
+import { formatHygieneHint, type HygieneFinding, scanStoreHygiene } from "../lib/hygiene.js";
 import { readSkillLock, type SkillLockEntry } from "../lib/lock.js";
+import {
+  getPackageRootDir,
+  getReadmeFilename,
+  getReadmePath,
+  type ReadmeVariant,
+  resolveWithinPackageRoot,
+  rewriteReadmeAssetUrls,
+} from "../lib/package-root.js";
 import { getAweskillPaths } from "../lib/path.js";
-import { getSkillDescription, parseSkillDoc } from "../lib/skill-doc.js";
 import { scanSkills } from "../lib/scanner.js";
+import { getSkillDescription, parseSkillDoc } from "../lib/skill-doc.js";
 import { getSkillPath, listSkillEntriesInDirectory, listSkills, skillExists } from "../lib/skills.js";
 import { listBrokenSymlinkNames, listManagedSkillNames } from "../lib/symlink.js";
 import type { RuntimeContext } from "../types.js";
@@ -79,6 +87,12 @@ interface StoreApiResponse {
   bundleCount: number;
 }
 
+interface ReadmeApiResponse {
+  variant: ReadmeVariant;
+  filename: string;
+  content: string;
+}
+
 const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
@@ -108,6 +122,50 @@ function sendJson(res: ServerResponse, statusCode: number, body: unknown): void 
 
 function isApiRoute(urlPath: string): boolean {
   return urlPath === "/api" || urlPath.startsWith("/api/");
+}
+
+function parseReadmeVariant(value: string | null): ReadmeVariant {
+  if (value === "zh-CN" || value === "zh") {
+    return "zh-CN";
+  }
+  return "en";
+}
+
+async function buildReadmeResponse(variant: ReadmeVariant): Promise<ReadmeApiResponse> {
+  const readmePath = await getReadmePath(variant);
+  const content = rewriteReadmeAssetUrls(await readFile(readmePath, "utf8"));
+
+  return {
+    variant,
+    filename: getReadmeFilename(variant),
+    content,
+  };
+}
+
+async function serveReadmeAsset(req: IncomingMessage, res: ServerResponse, relativePath: string): Promise<boolean> {
+  const packageRoot = await getPackageRootDir();
+  const resolved = resolveWithinPackageRoot(packageRoot, relativePath);
+  if (!resolved) {
+    sendJson(res, 403, { error: "Forbidden" });
+    return true;
+  }
+
+  const fileStat = await stat(resolved).catch(() => null);
+  if (!fileStat?.isFile()) {
+    sendJson(res, 404, { error: "Not found" });
+    return true;
+  }
+
+  const contentType = getContentType(resolved);
+  if (req.method === "HEAD") {
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end();
+    return true;
+  }
+
+  res.writeHead(200, { "Content-Type": contentType });
+  createReadStream(resolved).pipe(res);
+  return true;
 }
 
 function resolveWithinDashboard(dashboardDir: string, relativePath: string): string | null {
@@ -254,9 +312,7 @@ async function buildHealthResponse(homeDir: string): Promise<HealthApiResponse> 
     );
   }
   if (suspicious > 0) {
-    suggestions.push(
-      "Run aweskill doctor sync --apply --remove-suspicious to remove suspicious agent skill entries.",
-    );
+    suggestions.push("Run aweskill doctor sync --apply --remove-suspicious to remove suspicious agent skill entries.");
   }
 
   return {
@@ -268,10 +324,7 @@ async function buildHealthResponse(homeDir: string): Promise<HealthApiResponse> 
   };
 }
 
-async function buildSkillDetailResponse(
-  homeDir: string,
-  skillName: string,
-): Promise<SkillDetailApiResponse | null> {
+async function buildSkillDetailResponse(homeDir: string, skillName: string): Promise<SkillDetailApiResponse | null> {
   if (!(await skillExists(homeDir, skillName))) {
     return null;
   }
@@ -373,6 +426,24 @@ async function handleApiRequest(
 
     sendJson(res, 200, store);
     return true;
+  }
+
+  if (urlPath === "/api/readme") {
+    const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const readme = await buildReadmeResponse(parseReadmeVariant(requestUrl.searchParams.get("variant")));
+    if (req.method === "HEAD") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end();
+      return true;
+    }
+
+    sendJson(res, 200, readme);
+    return true;
+  }
+
+  const readmeAssetMatch = /^\/api\/readme\/assets\/(.+)$/.exec(urlPath);
+  if (readmeAssetMatch) {
+    return serveReadmeAsset(req, res, decodeURIComponent(readmeAssetMatch[1] ?? ""));
   }
 
   const skillDetailMatch = /^\/api\/skills\/([^/]+)$/.exec(urlPath);

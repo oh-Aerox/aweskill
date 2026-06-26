@@ -12,6 +12,7 @@ const ROUTE = {
   BUNDLES: "bundles",
   AGENTS: "agents",
   HEALTH: "health",
+  README: "readme",
 };
 
 /** Maps each route to the sidebar link that should appear active. */
@@ -21,6 +22,7 @@ const NAV_HASH_BY_ROUTE = {
   [ROUTE.BUNDLES]: "#/bundles",
   [ROUTE.AGENTS]: "#/agents",
   [ROUTE.HEALTH]: "#/health",
+  [ROUTE.README]: "#/readme",
 };
 
 const contentEl = document.getElementById("content");
@@ -60,6 +62,7 @@ let skillDetailRenderToken = 0;
 let bundlesListRenderToken = 0;
 let agentsListRenderToken = 0;
 let healthPageRenderToken = 0;
+let readmePageRenderToken = 0;
 
 /**
  * Minimal page shell with a loading indicator.
@@ -761,6 +764,61 @@ async function renderHealthPage() {
   }
 }
 
+function getReadmeVariantFromHash() {
+  const params = new URLSearchParams(window.location.hash.split("?")[1] ?? "");
+  const variant = params.get("variant");
+  return variant === "zh-CN" || variant === "zh" ? "zh-CN" : "en";
+}
+
+function buildReadmeHash(variant) {
+  return variant === "zh-CN" ? "#/readme?variant=zh-CN" : "#/readme";
+}
+
+function renderReadmeToolbar(activeVariant) {
+  const enActive = activeVariant === "en" ? " readme-toolbar__button--active" : "";
+  const zhActive = activeVariant === "zh-CN" ? " readme-toolbar__button--active" : "";
+
+  return `
+    <div class="readme-toolbar" role="tablist" aria-label="Readme language">
+      <a class="readme-toolbar__button${enActive}" href="${buildReadmeHash("en")}" role="tab" aria-selected="${activeVariant === "en"}">English</a>
+      <a class="readme-toolbar__button${zhActive}" href="${buildReadmeHash("zh-CN")}" role="tab" aria-selected="${activeVariant === "zh-CN"}">简体中文</a>
+    </div>
+  `;
+}
+
+async function renderReadmePage() {
+  const token = ++readmePageRenderToken;
+  const variant = getReadmeVariantFromHash();
+  renderLoadingPage("Readme", "Loading README…");
+
+  try {
+    const readme = await fetchJson(`/readme?variant=${encodeURIComponent(variant)}`);
+    if (token !== readmePageRenderToken) {
+      return;
+    }
+
+    const html = window.renderMarkdown(readme.content ?? "");
+
+    contentEl.innerHTML = `
+      <div class="page page--readme">
+        <header class="page__header">
+          <h2 class="page__title">Readme</h2>
+          <p class="page__subtitle text-muted">${escapeHtml(readme.filename ?? "README.md")}</p>
+          ${renderReadmeToolbar(readme.variant ?? variant)}
+        </header>
+        <article class="readme-content">${html}</article>
+      </div>
+    `;
+  } catch (error) {
+    if (token !== readmePageRenderToken) {
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load README";
+    renderErrorPage("Readme", message);
+  }
+}
+
 /**
  * Parse the current location hash into a route descriptor.
  * Returns null for empty or unknown paths so the router can redirect.
@@ -774,7 +832,8 @@ function parseHashRoute() {
     return null;
   }
 
-  const [section, ...rest] = segments;
+  const [sectionWithQuery, ...rest] = segments;
+  const section = sectionWithQuery.split("?")[0];
 
   switch (section) {
     case "skills":
@@ -791,6 +850,8 @@ function parseHashRoute() {
       return { name: ROUTE.AGENTS };
     case "health":
       return { name: ROUTE.HEALTH };
+    case "readme":
+      return { name: ROUTE.README };
     default:
       return null;
   }
@@ -839,6 +900,9 @@ function dispatchRoute(route) {
       break;
     case ROUTE.HEALTH:
       renderHealthPage();
+      break;
+    case ROUTE.README:
+      renderReadmePage();
       break;
   }
 }

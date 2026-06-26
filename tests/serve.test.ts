@@ -5,9 +5,9 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { runServe } from "../src/commands/serve.js";
+import { createProgram } from "../src/index.js";
 import { addSkillToBundle, createBundle } from "../src/lib/bundles.js";
 import { getSkillPath } from "../src/lib/skills.js";
-import { createProgram } from "../src/index.js";
 import { createRuntime, createTempWorkspace, writeSkill } from "./helpers.js";
 
 describe("serve command", () => {
@@ -150,5 +150,34 @@ describe("serve command", () => {
 
     const body = await response.text();
     expect(body).toBe(dashboardIndex);
+  });
+
+  it("GET /api/readme returns README content with rewritten asset URLs", async () => {
+    const { runtime } = await setupWorkspace();
+    const { host, port } = await startServer(runtime);
+
+    const response = await fetch(`http://${host}:${port}/api/readme`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+
+    const readme = (await response.json()) as {
+      variant: string;
+      filename: string;
+      content: string;
+    };
+
+    expect(readme.variant).toBe("en");
+    expect(readme.filename).toBe("README.md");
+    expect(readme.content).toContain("aweskill");
+    expect(readme.content).toContain("/api/readme/assets/logo.png");
+  });
+
+  it("GET /api/readme/assets/logo.png serves a project asset", async () => {
+    const { runtime } = await setupWorkspace();
+    const { host, port } = await startServer(runtime);
+
+    const response = await fetch(`http://${host}:${port}/api/readme/assets/logo.png`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("image/png");
   });
 });
