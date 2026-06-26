@@ -11,7 +11,7 @@ export function getReadmeFilename(variant: ReadmeVariant): string {
 
 export async function getPackageRootDir(): Promise<string> {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [path.resolve(moduleDir, "..", ".."), path.resolve(moduleDir, "..", "..", "..")];
+  const candidates = [path.resolve(moduleDir, "..", ".."), path.resolve(moduleDir, "..")];
 
   for (const candidate of candidates) {
     if (await pathExists(path.join(candidate, "README.md"))) {

@@ -7,7 +7,7 @@ export async function getDashboardDir(): Promise<string> {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
     path.resolve(moduleDir, "..", "..", "dashboard"),
-    path.resolve(moduleDir, "..", "..", "..", "dashboard"),
+    path.resolve(moduleDir, "..", "dashboard"),
   ];
 
   for (const candidate of candidates) {
